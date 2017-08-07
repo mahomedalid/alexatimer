@@ -1,5 +1,9 @@
 package mahopam;
 
+import java.util.Date;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -119,8 +123,8 @@ public class AlexaTimerSpeechlet implements Speechlet {
             PlainTextOutputSpeech outputSpeech = new PlainTextOutputSpeech();
             outputSpeech.setText("Task " + taskName + " initiated.");
 
-            DateFormat df = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss");
-            Date today = Calendar.getInstance().getTime();        
+            SimpleDateFormat df = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss");
+            Date today = Calendar.getInstance().getTime();  
             String startDate = df.format(today);
 
             SimpleCard card = new SimpleCard();
