@@ -1,0 +1,9 @@
+StartTaskIntent start task {Task}
+StartTaskIntent start the task {Task}
+StartTaskIntent start a task {Task}
+StartTaskIntent please start task {Task}
+StartTaskIntent please start the task {Task}
+StartTaskIntent I will start the task {Task}
+StartTaskIntent initiate {Task}
+StartTaskIntent initiating {Task}
+StartTaskIntent starting {Task}
