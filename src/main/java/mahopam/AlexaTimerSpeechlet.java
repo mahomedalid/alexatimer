@@ -18,8 +18,15 @@ import com.amazon.speech.speechlet.Speechlet;
 import com.amazon.speech.speechlet.SpeechletException;
 import com.amazon.speech.speechlet.SpeechletResponse;
 import com.amazon.speech.ui.PlainTextOutputSpeech;
+import com.amazon.speech.ui.SsmlOutputSpeech;
 import com.amazon.speech.ui.Reprompt;
 import com.amazon.speech.ui.SimpleCard;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 
 /**
  * This sample shows how to create a Lambda function for handling Alexa Skill requests that:
@@ -43,6 +50,7 @@ public class AlexaTimerSpeechlet implements Speechlet {
      * The key to get the item from the intent.
      */
     private static final String TASK_SLOT = "Task";
+    private static final String DATE_SLOT = "Date";
 
     @Override
     public void onSessionStarted(final SessionStartedRequest request, final Session session)
@@ -60,7 +68,7 @@ public class AlexaTimerSpeechlet implements Speechlet {
                 session.getSessionId());
 
         String speechOutput =
-                "Welcome to your personal alexa timer. You can start or stop a task like, "
+                "Welcome to your personal alexa time tracking. You can start or stop a task like, "
                         + "start task making bacon pancakes ... Now, what can I help you with?";
         // If the user either does not reply to the welcome message or says
         // something that is not understood, they will be prompted again with this text.
@@ -80,7 +88,17 @@ public class AlexaTimerSpeechlet implements Speechlet {
         String intentName = (intent != null) ? intent.getName() : null;
 
         if ("StartTaskIntent".equals(intentName)) {
-            return startTask(intent);
+            return startTask(intent, session);
+        } else if ("StopAllTasksIntent".equals(intentName)) {
+            return stopAllTasks(intent, session);
+        } else if ("StopLastTaskIntent".equals(intentName)) {
+            return stopLastTask(intent, session);
+        } else if ("StopTaskIntent".equals(intentName)) {
+            return stopTask(intent, session);
+        } else if ("GetCurrentTaskIntent".equals(intentName)) {
+            return getCurrentTask(intent, session);
+        } else if ("GetReportIntent".equals(intentName)) {
+            return getReport(intent, session);
         } else if ("AMAZON.HelpIntent".equals(intentName)) {
             return getHelp();
         } else if ("AMAZON.StopIntent".equals(intentName)) {
@@ -114,7 +132,7 @@ public class AlexaTimerSpeechlet implements Speechlet {
      *            intent for the request
      * @return SpeechletResponse spoken and visual response for the given intent
      */
-    private SpeechletResponse startTask(Intent intent) {
+    private SpeechletResponse startTask(Intent intent, Session session) {
         Slot taskSlot = intent.getSlot(TASK_SLOT);
         if (taskSlot != null && taskSlot.getValue() != null) {
             String taskName = taskSlot.getValue();
@@ -128,34 +146,303 @@ public class AlexaTimerSpeechlet implements Speechlet {
             String startDate = df.format(today);
 
             SimpleCard card = new SimpleCard();
-            card.setTitle("Task " + taskName + " initiated.");
-            card.setContent("Task was started at " + startDate);
+	    PreparedStatement stmt = null;
+   	    ResultSet rs = null;
+ 	    Connection conn = null;
+
+	    try {
+		conn = getRdsConnection();
+		conn.setAutoCommit(true);
+		stmt = conn.prepareStatement("INSERT INTO task_entry (user_id, start_time, task_name) VALUES (?, NOW(), ?)");
+
+		stmt.setString(1, session.getUser().getUserId());
+		stmt.setString(2, taskName);
+
+		stmt.executeUpdate();
+
+		//conn.commit();
+
+	        card.setTitle("Task " + taskName + " initiated.");
+        	card.setContent("Task was started at " + startDate);
+
+		stmt.close();
+
+  	    } catch (SQLException ex) {
+	        card.setTitle("Task " + taskName + " could not be initiated.");
+        	card.setContent("Error: " + ex.getMessage());
+		outputSpeech.setText("Error initiating task " + taskName);
+	    }
 
             return SpeechletResponse.newTellResponse(outputSpeech, card);
-/*
-            if (recipe != null) {
-                // If we have the recipe, return it to the user.
-                PlainTextOutputSpeech outputSpeech = new PlainTextOutputSpeech();
-                outputSpeech.setText(recipe);
-
-                
-
-                
-            } else {
-                // We don't have a recipe, so keep the session open and ask the user for another
-                // item.
-                String speechOutput =
-                        "I'm sorry, I currently do not know the recipe for " + itemName
-                                + ". What else can I help with?";
-                String repromptSpeech = "What else can I help with?";
-                return newAskResponse(speechOutput, repromptSpeech);
-            }*/
         } else {
             // There was no item in the intent so return the help prompt.
             return getHelp();
         }
     }
 
+    private Connection getRdsConnection() throws SQLException
+    {
+        return DriverManager.getConnection(System.getenv("rds_connection_string"));
+    }
+    
+    /**
+     * Creates a {@code SpeechletResponse} for the RecipeIntent.
+     *
+     * @param intent
+     *            intent for the request
+     * @return SpeechletResponse spoken and visual response for the given intent
+     */
+    private SpeechletResponse stopTask(Intent intent, Session session) {
+        Slot taskSlot = intent.getSlot(TASK_SLOT);
+        if (taskSlot != null && taskSlot.getValue() != null) {
+            String taskName = taskSlot.getValue();
+
+            //Code for starttask
+            PlainTextOutputSpeech outputSpeech = new PlainTextOutputSpeech();
+            outputSpeech.setText("Task " + taskName + " stopped.");
+
+            SimpleDateFormat df = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss");
+            Date today = Calendar.getInstance().getTime();  
+            String startDate = df.format(today);
+
+            SimpleCard card = new SimpleCard();
+	    PreparedStatement stmt = null;
+   	    ResultSet rs = null;
+ 	    Connection conn = null;
+
+	    try {
+		conn = getRdsConnection();
+		conn.setAutoCommit(true);
+		stmt = conn.prepareStatement("UPDATE task_entry SET end_time = NOW() WHERE user_id = ? AND task_name LIKE ?");
+
+		stmt.setString(1, session.getUser().getUserId());
+		stmt.setString(2, taskName);
+
+		stmt.executeUpdate();
+
+		//conn.commit();
+
+	        card.setTitle("Task " + taskName + " stopped.");
+        	card.setContent("Task was stopped at " + startDate);
+
+		stmt.close();
+
+  	    } catch (SQLException ex) {
+	        card.setTitle("Task " + taskName + " could not be initiated.");
+        	card.setContent("Error: " + ex.getMessage());
+		outputSpeech.setText("Error stoping task " + taskName);
+	    }
+
+            return SpeechletResponse.newTellResponse(outputSpeech, card);
+        } else {
+            // There was no item in the intent so return the help prompt.
+            return getHelp();
+        }
+    }
+
+
+    /**
+     * Creates a {@code SpeechletResponse} for the RecipeIntent.
+     *
+     * @param intent
+     *            intent for the request
+     * @return SpeechletResponse spoken and visual response for the given intent
+     */
+    private SpeechletResponse getReport(Intent intent, Session session) {
+            Slot dateSlot = intent.getSlot(DATE_SLOT);
+            if (dateSlot == null || dateSlot.getValue() == null) {
+                return getHelp();
+            }
+
+            SsmlOutputSpeech outputSpeech = new SsmlOutputSpeech();
+
+            SimpleCard card = new SimpleCard();
+	    PreparedStatement stmt = null;
+   	    ResultSet rs = null;
+ 	    Connection conn = null;
+            String dateISO = dateSlot.getValue();
+
+	    try {
+                conn = getRdsConnection();
+		conn.setAutoCommit(true);
+		stmt = conn.prepareStatement("SELECT task_name, TIMESTAMPDIFF(MINUTE,start_time,end_time) AS total_time FROM task_entry WHERE user_id = ? AND end_time IS NOT NULL AND start_time BETWEEN ? AND ? ORDER BY start_time DESC LIMIT 1");
+
+		stmt.setString(1, session.getUser().getUserId());
+		stmt.setString(2, dateISO + " 00:00:00");
+		stmt.setString(3, dateISO + " 23:59:59");
+
+		rs = stmt.executeQuery();
+
+                outputSpeech.setSsml("<speak>You don't have any recorded task for that day<speak>");
+		card.setTitle("You don't have any recorded task for "+dateISO);
+
+                String report = "";
+
+		while(rs.next()) {
+		    String taskName = rs.getString("task_name");
+		    String totalTime = rs.getString("total_time");
+
+                    report += "<s>Task " + taskName + "<break time='1s' />, recorded time " 
+                            + "  <say-as interpret-as='cardinal'>" + totalTime + "</say-as> minutes</s>";
+		}
+                 
+                if (!report.toString().isEmpty()) {
+                    report = "<speak>This is the report of the date <say-as interpret-as='date'>"+dateISO+"</say-as><break time='1s' />" + report + "</speak>";
+                    outputSpeech.setSsml(report);
+	            card.setTitle("Report of the date " + dateISO);
+           	    card.setContent(report); //FIXME
+                }
+
+		stmt.close();
+
+  	    } catch (SQLException ex) {
+	        card.setTitle("Report could not be retrieved");
+        	card.setContent("Error: " + ex.getMessage());
+		outputSpeech.setSsml("<speak>Error retrieving tasks report<speak>");
+	    }
+
+            return SpeechletResponse.newTellResponse(outputSpeech, card);
+    }
+
+
+    /**
+     * Creates a {@code SpeechletResponse} for the RecipeIntent.
+     *
+     * @param intent
+     *            intent for the request
+     * @return SpeechletResponse spoken and visual response for the given intent
+     */
+    private SpeechletResponse getCurrentTask(Intent intent, Session session) {
+            //Code for starttask
+            PlainTextOutputSpeech outputSpeech = new PlainTextOutputSpeech();
+
+            SimpleCard card = new SimpleCard();
+	    PreparedStatement stmt = null;
+   	    ResultSet rs = null;
+ 	    Connection conn = null;
+
+	    try {
+                conn = getRdsConnection();
+		conn.setAutoCommit(true);
+		stmt = conn.prepareStatement("SELECT task_name, start_time FROM task_entry WHERE user_id = ? AND end_time IS NULL ORDER BY start_time DESC LIMIT 1");
+
+		stmt.setString(1, session.getUser().getUserId());
+
+		rs = stmt.executeQuery();
+
+                outputSpeech.setText("You don't have any active task");
+		card.setTitle("You don't have any active task");
+
+		while(rs.next()) {
+		   String taskName = rs.getString("task_name");
+		   String startTime = rs.getString("start_time");
+                   outputSpeech.setText("The current task is "+taskName);
+	           card.setTitle("Your active task is " + taskName);
+           	   card.setContent("Started at " + startTime);
+		}
+
+		stmt.close();
+
+  	    } catch (SQLException ex) {
+	        card.setTitle("Tasks could not be retrieved");
+        	card.setContent("Error: " + ex.getMessage());
+		outputSpeech.setText("Error retrieving active tasks");
+	    }
+
+            return SpeechletResponse.newTellResponse(outputSpeech, card);
+    }
+    /**
+     * Creates a {@code SpeechletResponse} for the RecipeIntent.
+     *
+     * @param intent
+     *            intent for the request
+     * @return SpeechletResponse spoken and visual response for the given intent
+     */
+    private SpeechletResponse stopLastTask(Intent intent, Session session) {
+            //Code for starttask
+            PlainTextOutputSpeech outputSpeech = new PlainTextOutputSpeech();
+            outputSpeech.setText("Last task stopped");
+
+            SimpleDateFormat df = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss");
+            Date today = Calendar.getInstance().getTime();
+            String startDate = df.format(today);
+
+            SimpleCard card = new SimpleCard();
+	    PreparedStatement stmt = null;
+   	    ResultSet rs = null;
+ 	    Connection conn = null;
+
+	    try {
+                conn = getRdsConnection();
+		conn.setAutoCommit(true);
+		stmt = conn.prepareStatement("UPDATE task_entry SET end_time = NOW() WHERE user_id = ? AND end_time IS NULL ORDER BY start_time DESC LIMIT 1");
+
+		stmt.setString(1, session.getUser().getUserId());
+
+		stmt.executeUpdate();
+
+		//conn.commit();
+
+	        card.setTitle("All tasks stopped");
+        	card.setContent("Tasks stopped at " + startDate);
+
+		stmt.close();
+
+  	    } catch (SQLException ex) {
+	        card.setTitle("Tasks could not be stopped.");
+        	card.setContent("Error: " + ex.getMessage());
+		outputSpeech.setText("Error stoping tasks");
+	    }
+
+            return SpeechletResponse.newTellResponse(outputSpeech, card);
+    }
+
+    /**
+     * Creates a {@code SpeechletResponse} for the RecipeIntent.
+     *
+     * @param intent
+     *            intent for the request
+     * @return SpeechletResponse spoken and visual response for the given intent
+     */
+    private SpeechletResponse stopAllTasks(Intent intent, Session session) {
+            //Code for starttask
+            PlainTextOutputSpeech outputSpeech = new PlainTextOutputSpeech();
+            outputSpeech.setText("All tasks stopped");
+
+            SimpleDateFormat df = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss");
+            Date today = Calendar.getInstance().getTime();
+            String startDate = df.format(today);
+
+            SimpleCard card = new SimpleCard();
+	    PreparedStatement stmt = null;
+   	    ResultSet rs = null;
+ 	    Connection conn = null;
+
+	    try {
+                conn = getRdsConnection();
+		conn.setAutoCommit(true);
+		stmt = conn.prepareStatement("UPDATE task_entry SET end_time = NOW() WHERE user_id = ? AND end_time IS NULL");
+
+		stmt.setString(1, session.getUser().getUserId());
+
+		stmt.executeUpdate();
+
+		//conn.commit();
+
+	        card.setTitle("All tasks stopped");
+        	card.setContent("Tasks stopped at " + startDate);
+
+		stmt.close();
+
+  	    } catch (SQLException ex) {
+	        card.setTitle("Tasks could not be stopped.");
+        	card.setContent("Error: " + ex.getMessage());
+		outputSpeech.setText("Error stoping tasks");
+	    }
+
+            return SpeechletResponse.newTellResponse(outputSpeech, card);
+    }
+ 
     /**
      * Creates a {@code SpeechletResponse} for the HelpIntent.
      *

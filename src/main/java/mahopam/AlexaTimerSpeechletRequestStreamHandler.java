@@ -19,7 +19,7 @@ public final class AlexaTimerSpeechletRequestStreamHandler extends
          * Alexa Skill and put the relevant Application Ids in this Set.
          */
         supportedApplicationIds = new HashSet<String>();
-        supportedApplicationIds.add("amzn1.ask.skill.5284f609-932f-42f1-aa26-c012411e930b");
+        supportedApplicationIds.add(System.getenv("amazon_skill_id"));
     }
 
     public AlexaTimerSpeechletRequestStreamHandler() {
