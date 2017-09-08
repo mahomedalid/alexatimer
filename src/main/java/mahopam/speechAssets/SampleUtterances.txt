@@ -7,3 +7,26 @@ StartTaskIntent I will start the task {Task}
 StartTaskIntent initiate {Task}
 StartTaskIntent initiating {Task}
 StartTaskIntent starting {Task}
+StopTaskIntent stop task {Task}
+StopTaskIntent stop the task {Task}
+StopTaskIntent stop a task {Task}
+StopTaskIntent please stop task {Task}
+StopTaskIntent please stop the task {Task}
+StopTaskIntent I will stop the task {Task}
+StopTaskIntent stoping {Task}
+StopAllTasksIntent stop all tasks
+StopAllTasksIntent stop all
+StopLastTaskIntent done
+StopLastTaskIntent finished
+StopLastTaskIntent stop last task
+StopLastTaskIntent stop last action
+GetCurrentTaskIntent get current task
+GetCurrentTaskIntent in what I'm currently working on
+GetCurrentTaskIntent current task
+GetCurrentTaskIntent get active task
+GetCurrentTaskIntent get last task
+GetReportIntent Get report from {Date}
+GetReportIntent Get report for {Date}
+GetReportIntent Get report of {Date}
+GetReportIntent Find my {Date} report
+GetReportIntent {Date} report

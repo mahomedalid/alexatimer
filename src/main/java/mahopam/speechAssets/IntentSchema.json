@@ -1,13 +1,40 @@
 {
   "intents": [
     {
-      "intent": "StartTaskIntent",
       "slots": [
         {
-          "name" : "Task",
+          "name": "Task",
           "type": "TASKS"
         }
-      ]
+      ],
+      "intent": "StartTaskIntent"
+    },
+    {
+      "slots": [
+        {
+          "name": "Task",
+          "type": "TASKS"
+        }
+      ],
+      "intent": "StopTaskIntent"
+    },
+	{
+      "slots": [
+        {
+          "name": "Date",
+          "type": "AMAZON.DATE"
+        }
+      ],
+      "intent": "GetReportIntent"
+    },
+	{
+      "intent": "StopAllTasksIntent"
+    },
+	{
+      "intent": "StopLastTaskIntent"
+    },
+	{
+      "intent": "GetCurrentTaskIntent"
     },
     {
       "intent": "AMAZON.HelpIntent"
